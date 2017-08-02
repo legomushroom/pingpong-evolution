@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "alwaysStrict": true,
+        "module": "es6",
+        "target": "es6",
+        "moduleResolution": "node",
+        "allowSyntheticDefaultImports": true,
+        "jsx": "preserve",
+        "skipLibCheck": true,
+        "sourceMap": true,
+        "outDir": "./dist/",
+        "baseUrl": ".",
+        "paths": {}
+    }
+}

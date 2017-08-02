@@ -1,0 +1,29 @@
+{
+  "name": "pingpong-evolution",
+  "version": "0.1.0",
+  "description": "- ball speed - ball angle - ball norm distance - top border distance - bottom border distance",
+  "main": "src/index.tsx",
+  "dependencies": {
+    "@types/dat-gui": "^0.6.3",
+    "dat.gui": "^0.6.1",
+    "linear-algebra": "^3.1.3",
+    "webpack": "^3.4.1"
+  },
+  "devDependencies": {
+    "circular-dependency-plugin": "^3.0.0",
+    "extract-text-webpack-plugin": "^3.0.0",
+    "ts-loader": "^2.3.2",
+    "typescript": "^2.4.2"
+  },
+  "scripts": {
+    "test": "test",
+    "start": "webpack --watch"
+  },
+  "author": "Oleg Solomka <legomushroom@gmail.com>",
+  "license": "MIT",
+  "lint-staged": {
+    "src/**/*.{ts,tsx}": [
+      "tslint"
+    ]
+  }
+}
