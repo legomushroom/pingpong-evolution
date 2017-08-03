@@ -111,12 +111,17 @@ class Bat extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProto *
     constructor(o = {}) {
         super(o);
         this.getFeatures = (ball) => {
-            const feature1 = ball.props.angle / 180;
+            let feature1 = ball.props.angle / 180;
+            // invert angle by x value for right bat to keep angle the same for both sides
+            if (this.props.side === SideType.Right) {
+                feature1 = -feature1;
+            }
             const feature2 = this.props.top / this.props.canvas.height;
             const dX = this.props.front - ball.props.x;
             const dY = (this.props.top + (this.props.height / 2)) - ball.props.y;
             const maxNorm = Math.sqrt((Math.pow(this.props.canvas.height, 2)) + (Math.pow(this.props.canvas.width, 2)));
             const feature3 = Math.sqrt((Math.pow(dX, 2)) + (Math.pow(dY, 2))) / maxNorm;
+            const feature4 = this.props.canvas.height / (this.props.ball.y - (this.props.top + (this.props.height / 2)));
             return [[1, feature1, feature2, feature3]];
         };
     }
@@ -124,13 +129,15 @@ class Bat extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProto *
         const defaults = {
             side: SideType.Left,
             top: 105,
-            height: 50,
+            height: 100,
             speed: 5,
             canvas: null,
             ball: null,
             parameters: [],
-            score: 0,
-            front: 4
+            front: 4,
+            fitness: 0,
+            distance: 0,
+            hits: 0
         };
         this.defaults = defaults;
     }
@@ -138,6 +145,9 @@ class Bat extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProto *
         const { parameters, side, canvas } = this.props;
         this.nn = new __WEBPACK_IMPORTED_MODULE_1__nn__["a" /* NeuralNetwork */]({ parameters });
         this.props.front = (side === SideType.Left) ? BAT_WIDTH : canvas.width - BAT_WIDTH;
+    }
+    blame() {
+        this.props.hits - 2;
     }
     set(o) {
         super.set(o);
@@ -148,13 +158,16 @@ class Bat extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProto *
         const { top, canvas, height, speed } = this.props;
         const features = this.getFeatures(this.props.ball);
         const activation = this.nn.getActivations(features);
-        if (activation === __WEBPACK_IMPORTED_MODULE_1__nn__["b" /* NeuralNetworkActivationType */].Top) {
-            this.props.top = Math.max(0, top - speed);
-        }
-        else {
-            this.props.top = Math.min(canvas.height, top + height + speed) - height;
-        }
+        const currentTop = top;
+        const newTop = (activation === __WEBPACK_IMPORTED_MODULE_1__nn__["b" /* NeuralNetworkActivationType */].Top)
+            ? Math.max(0, top - speed)
+            : Math.min(canvas.height, top + height + speed) - height;
+        this.props.top = newTop;
+        this.props.distance += Math.abs(currentTop - newTop);
         this.render();
+    }
+    hit() {
+        this.props.hits++;
     }
     render() {
         const { side, canvas, top, height } = this.props;
@@ -166,9 +179,23 @@ class Bat extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProto *
             canvas.ctx.fillRect(canvas.width - BAT_WIDTH, top, canvas.width, height);
         }
     }
-    getScore() { return this.props.score; }
+    getFitness() { return (this.props.distance / 200) + this.props.hits; }
+    getParameters() { return this.nn.getParameters(); }
+    mate(bat, mutationRate) {
+        const newParameters = this.nn.mate(bat.nn, mutationRate, this.getFitness(), bat.getFitness());
+        return new Bat({
+            canvas: this.props.canvas,
+            parameters: newParameters
+        });
+    }
     createAccessor(mutationRate) {
         return new Bat(Object.assign({}, this.props, { parameters: this.nn.createSuccessor(mutationRate) }));
+    }
+    clone() {
+        return new Bat({
+            canvas: this.props.canvas,
+            parameters: this.props.parameters
+        });
     }
     cteateChildParameters(params) {
         // code to mutate params
@@ -192,6 +219,16 @@ var NeuralNetworkActivationType;
     NeuralNetworkActivationType[NeuralNetworkActivationType["Bottom"] = 1] = "Bottom";
 })(NeuralNetworkActivationType || (NeuralNetworkActivationType = {}));
 ;
+const arrayCopy = (array = []) => {
+    if (!(array instanceof Array)) {
+        return array;
+    }
+    const result = [];
+    for (let i = 0; i < array.length; i++) {
+        result[i] = arrayCopy(array[i]);
+    }
+    return result;
+};
 class NeuralNetwork extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProto */] {
     declareDefaults() {
         const defaults = {
@@ -212,7 +249,32 @@ class NeuralNetwork extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* Cl
         // calculate activation units and return the max value
         return result[0] > result[1] ? NeuralNetworkActivationType.Top : NeuralNetworkActivationType.Bottom;
     }
-    createSuccessor(mutationRate) {
+    createSuccessor(mutationRate) { }
+    getParameters() {
+        return this.props.parameters;
+    }
+    mate(nn, mutationRate, fitness1, fitness2) {
+        const params1 = this.props.parameters;
+        const params2 = nn.getParameters();
+        const resultParams = arrayCopy(params1);
+        const rate = fitness1 / (fitness1 + fitness2);
+        console.log(`fitness1: ${fitness1}, fitness2: ${fitness2}, probability of 2: ${1 - rate}`);
+        for (let k = 0; k < params2.length; k++) {
+            const layer = params2[k];
+            for (let i = 0; i < layer.length; i++) {
+                const row = layer[i];
+                for (let j = 0; j < row.length; j++) {
+                    if (Math.random() > rate) {
+                        resultParams[k][i][j] = row[j];
+                    }
+                    if (Math.random() <= mutationRate) {
+                        // console.log(`> mutation occurred`);
+                        resultParams[k][i][j] = (2 * Math.random()) * resultParams[k][i][j];
+                    }
+                }
+            }
+        }
+        return resultParams;
     }
     constructor(o = {}) { super(o); }
 }
@@ -257,7 +319,7 @@ const randomMatrix = (m, n) => {
     for (let i = 0; i < m; i++) {
         matrix[i] = [];
         for (let j = 0; j < n; j++) {
-            matrix[i][j] = Math.random();
+            matrix[i][j] = (6 * Math.random()) - 3;
         }
     }
     return matrix;
@@ -304,13 +366,23 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 
 
 
+const settings = {
+    speed: 1,
+    mutationRate: 0.03
+};
+const gui = new dat.GUI();
+gui.add(settings, 'speed', 0, 16);
 const SEPARATOR = '-=-=-=-=-=-=-=-=-=-=-';
 const SMALL_SEPARATOR = '---------------------';
-const NN_LAYERS = [3, 9, 2];
+const NN_LAYERS = [3, 12, 2];
 ;
+const rand = (min, max) => {
+    return Math.round(min + (Math.random() * (max - min)));
+};
 class Evolution {
     constructor() {
         this.isPlaying = false;
+        this.fitness = 1.7;
         this.championshipNumber = 0;
         this.play = (ball, leftBat, rightBat) => {
             if (this.isPlaying === false) {
@@ -329,7 +401,7 @@ class Evolution {
             for (let i = 0; i < this.roundActive.length; i++) {
                 this.roundActive[i].tick(performance.now());
             }
-            this.animationFrame = setTimeout(this.loop, 1000 / 20);
+            this.animationFrame = setTimeout(this.loop, 1000 / (60 * settings.speed));
         };
         this.canvas = new __WEBPACK_IMPORTED_MODULE_0__canvas__["a" /* Canvas */]();
         this.createInitialRound();
@@ -337,7 +409,7 @@ class Evolution {
     createInitialRound() {
         const batOptions = { canvas: this.canvas };
         this.batsPool = [];
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 50; i++) {
             const leftBat = new __WEBPACK_IMPORTED_MODULE_2__bat__["a" /* Bat */](Object.assign({}, batOptions, { side: __WEBPACK_IMPORTED_MODULE_2__bat__["b" /* SideType */].Left, parameters: Object(__WEBPACK_IMPORTED_MODULE_3__nn__["c" /* randomParameters */])(NN_LAYERS) }));
             const rightBat = new __WEBPACK_IMPORTED_MODULE_2__bat__["a" /* Bat */](Object.assign({}, batOptions, { side: __WEBPACK_IMPORTED_MODULE_2__bat__["b" /* SideType */].Right, parameters: Object(__WEBPACK_IMPORTED_MODULE_3__nn__["c" /* randomParameters */])(NN_LAYERS) }));
             this.batsPool.push(leftBat, rightBat);
@@ -348,36 +420,92 @@ class Evolution {
         return __awaiter(this, void 0, void 0, function* () {
             console.log(SEPARATOR);
             console.log('');
-            console.log(`> Starting championship # ${this.championshipNumber}`);
+            console.log(`> Starting selection pool # ${++this.championshipNumber}`);
             this.roundNumber = 0;
-            const winners = [];
-            while (this.batsPool.length >= 2) {
-                const winner = yield this.evaluateRound(this.batsPool[0], this.batsPool[1], performance.now());
+            const processed = [];
+            let maxFitness = 0;
+            while (this.batsPool.length > 1) {
+                yield this.evaluateRound(this.batsPool[0], this.batsPool[1], performance.now());
                 // remove the bats that were playing in bat
-                this.batsPool.shift();
-                this.batsPool.shift();
+                const bat1 = this.batsPool.shift();
+                const bat2 = this.batsPool.shift();
+                processed.push(bat1);
+                processed.push(bat2);
+                if (maxFitness < bat1.getFitness()) {
+                    maxFitness = bat1.getFitness();
+                }
+                if (maxFitness < bat2.getFitness()) {
+                    maxFitness = bat2.getFitness();
+                }
                 // add the winner bat at the end
-                this.batsPool.push(winner);
-                console.log(`> Round ${this.roundNumber++} ended - winner with score of ${winner.getScore()}`);
+                console.log(`> (${this.championshipNumber}) max fitness so far: ${maxFitness} / ${this.fitness}`);
             }
-            const winner = this.batsPool.shift();
-            console.log(`> Champonship # ${this.championshipNumber} ended, score: ${winner.getScore()}, by winner `, winner);
+            console.log(SMALL_SEPARATOR);
+            console.log('');
+            let selected = this.select(processed);
+            if (selected.length < 2) {
+                selected = this.prevSelected;
+                settings.mutationRate *= 1.1;
+                console.log('!no improvement!');
+            }
+            else {
+                settings.mutationRate /= 1.05;
+            }
+            const mated = this.mateSpecies(selected);
             console.log('');
             console.log(SMALL_SEPARATOR);
-            this.batsPool.push(winner, ...this.createNewGemone(winner));
-            // this.runBatsQueue();
+            this.batsPool = mated;
+            this.prevSelected = selected;
+            this.runBatsQueue();
             console.log(SEPARATOR);
         });
     }
-    createNewGemone(winner) {
-        const result = [];
-        const MUTATION_RATE = 0.02;
-        const ITEMS = 10;
-        console.log(`- Creating the new Genome with ${ITEMS} children and mutation rate of ${MUTATION_RATE}`);
-        for (let i = 0; i < ITEMS; i++) {
-            result.push(winner.createAccessor(MUTATION_RATE));
+    select(processed) {
+        const filtered = [];
+        let fitnessSum = 0;
+        let fitnessMin = this.fitness;
+        let fitnessMax = 0;
+        for (let i = 0; i < processed.length; i++) {
+            const item = processed[i];
+            const itemFitness = item.getFitness();
+            if (itemFitness >= this.fitness) {
+                filtered.push(item);
+                fitnessSum += itemFitness;
+                if (fitnessMin >= itemFitness || (fitnessMin === this.fitness)) {
+                    fitnessMin = itemFitness;
+                }
+                if (itemFitness > fitnessMax) {
+                    fitnessMax = itemFitness;
+                }
+                // console.log(`> specie passed selection: ${itemFitness},  `, item.getParameters())
+            }
         }
-        return result;
+        const fitnessMean = fitnessSum / filtered.length;
+        console.log(`> ${filtered.length}/${processed.length} species passed selection with fitness of ${this.fitness}, fitness mean is - ${fitnessMean}, fitness min is ${fitnessMin}`);
+        if (filtered.length > 1) {
+            this.fitness = fitnessMin;
+        }
+        return filtered;
+    }
+    mateSpecies(items) {
+        const mated = [];
+        console.log(`> mating with ${settings.mutationRate} mutation rate`);
+        const cnt = 250;
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            while (mated.length < 100) {
+                const j = rand(0, items.length - 1);
+                if (i === j) {
+                    continue;
+                }
+                const item1 = item;
+                const item2 = items[j];
+                mated.push(item1.mate(item2, settings.mutationRate));
+            }
+        }
+        mated.push(...items);
+        console.log(`> ${items.length} species mated, new generation is ${mated.length} species`);
+        return mated;
     }
     evaluateRound(leftBat, rightBat, startTime) {
         return new Promise((resolve) => {
@@ -388,7 +516,7 @@ class Evolution {
                 startTime,
                 onFail: (side) => {
                     this.stop();
-                    resolve((side === __WEBPACK_IMPORTED_MODULE_2__bat__["b" /* SideType */].Left) ? this.batsPool[0] : this.batsPool[1]);
+                    resolve();
                 }
             });
             leftBat.set({
@@ -510,14 +638,16 @@ class Ball extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProto 
         if (leftBatIntersection != void 0) {
             this.props.x = leftBatIntersection.x;
             this.props.y = leftBatIntersection.y;
-            this.props.angle = leftBatIntersection.angle || 1;
+            this.props.angle = leftBatIntersection.angle + (10 * Math.random() - 5);
+            this.props.leftBat.hit();
             isBat = true;
         }
         const rightBatIntersection = this.checkBat(newPoint, 'right');
         if (rightBatIntersection != void 0 && !isBat) {
             this.props.x = rightBatIntersection.x;
             this.props.y = rightBatIntersection.y;
-            this.props.angle = rightBatIntersection.angle || 1;
+            this.props.angle = rightBatIntersection.angle + (10 * Math.random() - 5);
+            this.props.rightBat.hit();
             isBat = true;
         }
         const isLeftBound = this.checkLeftBound(newPoint);
@@ -565,22 +695,24 @@ class Ball extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProto 
         }
     }
     checkLeftBound(newPoint) {
-        const { radius } = this.props;
+        const { radius, leftBat } = this.props;
         if (newPoint.x <= 0) {
+            leftBat.blame();
             this.props.onFail(__WEBPACK_IMPORTED_MODULE_2__bat__["b" /* SideType */].Left);
             return true;
         }
     }
     checkRightBound(newPoint) {
-        const { canvas } = this.props;
+        const { canvas, rightBat } = this.props;
         if (newPoint.x >= canvas.width) {
+            rightBat.blame();
             this.props.onFail(__WEBPACK_IMPORTED_MODULE_2__bat__["b" /* SideType */].Right);
             return true;
         }
     }
     render() {
         const { canvas, x, y, radius, angle } = this.props;
-        console.log(angle, -angle);
+        // console.log(angle, -angle);
         canvas.ctx.beginPath();
         canvas.ctx.arc(x, y, radius, 0, 2 * Math.PI, true);
         canvas.ctx.closePath();

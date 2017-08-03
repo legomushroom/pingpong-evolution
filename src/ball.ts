@@ -72,7 +72,8 @@ export class Ball extends ClassProto implements IBallClass {
     if (leftBatIntersection != void 0) {
       this.props.x = leftBatIntersection.x;
       this.props.y = leftBatIntersection.y;
-      this.props.angle = leftBatIntersection.angle || 1;
+      this.props.angle = leftBatIntersection.angle + (10 * Math.random() - 5);
+      this.props.leftBat.hit();
       isBat = true;
     }
 
@@ -80,7 +81,8 @@ export class Ball extends ClassProto implements IBallClass {
     if (rightBatIntersection != void 0 && !isBat) {
       this.props.x = rightBatIntersection.x;
       this.props.y = rightBatIntersection.y;
-      this.props.angle = rightBatIntersection.angle || 1;
+      this.props.angle = rightBatIntersection.angle + (10 * Math.random() - 5);
+      this.props.rightBat.hit();
       isBat = true;
     }
 
@@ -146,7 +148,7 @@ export class Ball extends ClassProto implements IBallClass {
         );
 
         if (result !== false) {
-          const newRadius = Math.sqrt(Math.pow(x - result.x, 2) + Math.pow(y - result.y, 2) );
+          const newRadius = Math.sqrt(Math.pow(x - result.x, 2) + Math.pow(y - result.y, 2));
           const newPoint = getRadialPoint(x, y, newRadius, angle);
           const newAngle = -angle;
 
@@ -165,17 +167,19 @@ export class Ball extends ClassProto implements IBallClass {
   }
 
   private checkLeftBound(newPoint) {
-    const { radius } = this.props;
+    const { radius, leftBat } = this.props;
 
     if (newPoint.x <= 0) {
+      leftBat.blame();
       this.props.onFail(BatSideType.Left);
       return true;
     }
   }
 
   private checkRightBound(newPoint) {
-    const { canvas } = this.props;
+    const { canvas, rightBat } = this.props;
     if (newPoint.x >= canvas.width) {
+      rightBat.blame();
       this.props.onFail(BatSideType.Right);
       return true;
     }
@@ -184,7 +188,7 @@ export class Ball extends ClassProto implements IBallClass {
   private render() {
     const { canvas, x, y, radius, angle } = this.props;
 
-    console.log(angle, -angle);
+    // console.log(angle, -angle);
 
     canvas.ctx.beginPath();
     canvas.ctx.arc(x, y, radius, 0, 2 * Math.PI, true); 

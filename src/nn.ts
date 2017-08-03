@@ -15,6 +15,16 @@ export interface INeuralNetworkClass {
   getActivations: (features: IFeatures) => NeuralNetworkActivationType;
 }
 
+const arrayCopy = (array = []) => {
+  if (!(array instanceof Array)) { return array; }
+  const result = [];
+  for (let i = 0; i < array.length; i++) {
+    result[i]= arrayCopy(array[i]);
+  }
+
+  return result;
+};
+
 export class NeuralNetwork extends ClassProto implements INeuralNetworkClass {
   public declareDefaults() {
     const defaults: INeuralNetworkProps = {
@@ -40,8 +50,38 @@ export class NeuralNetwork extends ClassProto implements INeuralNetworkClass {
     return result[0] > result[1] ? NeuralNetworkActivationType.Top : NeuralNetworkActivationType.Bottom;
   }
 
-  public createSuccessor(mutationRate) {
+  public createSuccessor(mutationRate) {}
 
+  public getParameters() {
+    return this.props.parameters;
+  }
+
+  public mate(nn: NeuralNetwork, mutationRate: number, fitness1: number, fitness2: number) {
+    const params1 = this.props.parameters;
+    const params2 = nn.getParameters();
+    const resultParams = arrayCopy(params1);
+
+    const rate = fitness1 / (fitness1 + fitness2);
+
+    console.log(`fitness1: ${fitness1}, fitness2: ${fitness2}, probability of 2: ${1 - rate}`);
+
+    for (let k = 0; k < params2.length; k++) {
+      const layer = params2[k];
+      for (let i = 0; i < layer.length; i++) {
+        const row = layer[i];
+        for (let j = 0; j < row.length; j++) {
+          if (Math.random() > rate) {
+            resultParams[k][i][j] = row[j];
+          }
+          if (Math.random() <= mutationRate) {
+            // console.log(`> mutation occurred`);
+            resultParams[k][i][j] = (2 * Math.random()) * resultParams[k][i][j];
+          }
+        }
+      }
+    }
+
+    return resultParams;
   }
 
   public constructor(o: Partial<INeuralNetworkProps> = {}) { super(o); }
@@ -95,7 +135,7 @@ const randomMatrix = (m, n) => {
   for (let i = 0; i < m; i++) {
     matrix[i] = [];
     for (let j = 0; j < n; j++) {
-      matrix[i][j] = Math.random();
+      matrix[i][j] = (6 * Math.random()) - 3;
     }
   }
 
