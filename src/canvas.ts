@@ -34,7 +34,7 @@ export class Canvas extends ClassProto implements ICanvasClass {
     const canvas = document.createElement('canvas');
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
-    canvas.style.border = `1px solid #777`;
+    canvas.style.border = `2px solid #aaa`;
 
     canvas.setAttribute('width', width);
     canvas.setAttribute('height', height);

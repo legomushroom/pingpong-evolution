@@ -105,7 +105,7 @@ var SideType;
     SideType[SideType["Left"] = 0] = "Left";
     SideType[SideType["Right"] = 1] = "Right";
 })(SideType || (SideType = {}));
-const BAT_WIDTH = 4;
+const BAT_WIDTH = 5;
 const BAT_COLOR = '#333';
 class Bat extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProto */] {
     constructor(o = {}) {
@@ -121,8 +121,9 @@ class Bat extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProto *
             const dY = (this.props.top + (this.props.height / 2)) - ball.props.y;
             const maxNorm = Math.sqrt((Math.pow(this.props.canvas.height, 2)) + (Math.pow(this.props.canvas.width, 2)));
             const feature3 = Math.sqrt((Math.pow(dX, 2)) + (Math.pow(dY, 2))) / maxNorm;
-            const feature4 = this.props.canvas.height / (this.props.ball.y - (this.props.top + (this.props.height / 2)));
-            return [[1, feature1, feature2, feature3]];
+            const feature4 = ((this.props.canvas.height / 2) - this.props.ball.props.y) / (this.props.canvas.height / 2);
+            const feature5 = this.props.canvas.height / (this.props.ball.props.y - (this.props.top + (this.props.height / 2)));
+            return [[1, feature1, feature2, feature3, feature4]];
         };
     }
     declareDefaults() {
@@ -134,7 +135,7 @@ class Bat extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProto *
             canvas: null,
             ball: null,
             parameters: [],
-            front: 4,
+            front: BAT_WIDTH,
             fitness: 0,
             distance: 0,
             hits: 0
@@ -147,7 +148,7 @@ class Bat extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProto *
         this.props.front = (side === SideType.Left) ? BAT_WIDTH : canvas.width - BAT_WIDTH;
     }
     blame() {
-        this.props.hits - 2;
+        this.props.hits / 1.25;
     }
     set(o) {
         super.set(o);
@@ -179,7 +180,7 @@ class Bat extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProto *
             canvas.ctx.fillRect(canvas.width - BAT_WIDTH, top, canvas.width, height);
         }
     }
-    getFitness() { return (this.props.distance / 200) + this.props.hits; }
+    getFitness() { return (this.props.distance / (this.props.canvas.height / 2)) + (this.props.hits); }
     getParameters() { return this.nn.getParameters(); }
     mate(bat, mutationRate) {
         const newParameters = this.nn.mate(bat.nn, mutationRate, this.getFitness(), bat.getFitness());
@@ -189,7 +190,10 @@ class Bat extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProto *
         });
     }
     createAccessor(mutationRate) {
-        return new Bat(Object.assign({}, this.props, { parameters: this.nn.createSuccessor(mutationRate) }));
+        return new Bat({
+            canvas: this.props.canvas,
+            parameters: this.nn.createSuccessor(mutationRate)
+        });
     }
     clone() {
         return new Bat({
@@ -258,7 +262,7 @@ class NeuralNetwork extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* Cl
         const params2 = nn.getParameters();
         const resultParams = arrayCopy(params1);
         const rate = fitness1 / (fitness1 + fitness2);
-        console.log(`fitness1: ${fitness1}, fitness2: ${fitness2}, probability of 2: ${1 - rate}`);
+        // console.log(`fitness1: ${fitness1}, fitness2: ${fitness2}, probability of 2: ${1 - rate}`);
         for (let k = 0; k < params2.length; k++) {
             const layer = params2[k];
             for (let i = 0; i < layer.length; i++) {
@@ -269,7 +273,7 @@ class NeuralNetwork extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* Cl
                     }
                     if (Math.random() <= mutationRate) {
                         // console.log(`> mutation occurred`);
-                        resultParams[k][i][j] = (2 * Math.random()) * resultParams[k][i][j];
+                        resultParams[k][i][j] = (6 * Math.random()) - 3;
                     }
                 }
             }
@@ -368,13 +372,25 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 
 const settings = {
     speed: 1,
-    mutationRate: 0.03
+    mutationRate: 0,
+    generation: 0,
+    fitness: .5,
+    maxFitness: 0
 };
 const gui = new dat.GUI();
 gui.add(settings, 'speed', 0, 16);
+gui.add(settings, 'generation').listen();
+gui.add(settings, 'fitness').listen();
+gui.add(settings, 'maxFitness').listen();
+function shuffle(a) {
+    for (let i = a.length; i; i--) {
+        let j = Math.floor(Math.random() * i);
+        [a[i - 1], a[j]] = [a[j], a[i - 1]];
+    }
+}
 const SEPARATOR = '-=-=-=-=-=-=-=-=-=-=-';
 const SMALL_SEPARATOR = '---------------------';
-const NN_LAYERS = [3, 12, 2];
+const NN_LAYERS = [4, 15, 2];
 ;
 const rand = (min, max) => {
     return Math.round(min + (Math.random() * (max - min)));
@@ -382,13 +398,11 @@ const rand = (min, max) => {
 class Evolution {
     constructor() {
         this.isPlaying = false;
-        this.fitness = 1.7;
-        this.championshipNumber = 0;
         this.play = (ball, leftBat, rightBat) => {
             if (this.isPlaying === false) {
                 this.isPlaying = true;
                 if (ball) {
-                    this.roundActive = [ball, leftBat, rightBat];
+                    this.roundActive = [leftBat, rightBat, ball];
                 }
                 this.loop();
             }
@@ -420,10 +434,11 @@ class Evolution {
         return __awaiter(this, void 0, void 0, function* () {
             console.log(SEPARATOR);
             console.log('');
-            console.log(`> Starting selection pool # ${++this.championshipNumber}`);
+            console.log(`> Starting selection pool # ${++settings.generation}`);
             this.roundNumber = 0;
             const processed = [];
             let maxFitness = 0;
+            const len = this.batsPool.length;
             while (this.batsPool.length > 1) {
                 yield this.evaluateRound(this.batsPool[0], this.batsPool[1], performance.now());
                 // remove the bats that were playing in bat
@@ -437,19 +452,22 @@ class Evolution {
                 if (maxFitness < bat2.getFitness()) {
                     maxFitness = bat2.getFitness();
                 }
+                settings.maxFitness = maxFitness;
                 // add the winner bat at the end
-                console.log(`> (${this.championshipNumber}) max fitness so far: ${maxFitness} / ${this.fitness}`);
+                // console.log(`> (${settings.generation}) max fitness so far: ${maxFitness} / ${settings.fitness}`);
             }
             console.log(SMALL_SEPARATOR);
             console.log('');
             let selected = this.select(processed);
-            if (selected.length < 2) {
-                selected = this.prevSelected;
-                settings.mutationRate *= 1.1;
-                console.log('!no improvement!');
+            settings.mutationRate = 0.005 * ((100 - selected.length) / (len));
+            console.log(`> selected: ${selected.length}, mutationRate: ${settings.mutationRate}`);
+            if (selected.length < 5) {
+                settings.mutationRate *= (1 + (5 - selected.length));
+                console.log(`> few made it, new mutation rate is: ${settings.mutationRate}`);
             }
-            else {
-                settings.mutationRate /= 1.05;
+            if (selected.length < 2) {
+                selected = [...this.prevSelected, ...(selected || [])];
+                console.log('!no improvement!');
             }
             const mated = this.mateSpecies(selected);
             console.log('');
@@ -461,17 +479,17 @@ class Evolution {
         });
     }
     select(processed) {
-        const filtered = [];
+        let filtered = [];
         let fitnessSum = 0;
-        let fitnessMin = this.fitness;
+        let fitnessMin = settings.fitness;
         let fitnessMax = 0;
         for (let i = 0; i < processed.length; i++) {
             const item = processed[i];
             const itemFitness = item.getFitness();
-            if (itemFitness >= this.fitness) {
+            if (itemFitness >= settings.fitness) {
                 filtered.push(item);
                 fitnessSum += itemFitness;
-                if (fitnessMin >= itemFitness || (fitnessMin === this.fitness)) {
+                if (fitnessMin >= itemFitness || (fitnessMin === settings.fitness)) {
                     fitnessMin = itemFitness;
                 }
                 if (itemFitness > fitnessMax) {
@@ -480,20 +498,31 @@ class Evolution {
                 // console.log(`> specie passed selection: ${itemFitness},  `, item.getParameters())
             }
         }
+        const SLICE_RATE = 100;
+        if (filtered.length > SLICE_RATE) {
+            filtered.sort((a, b) => {
+                return b.getFitness() - a.getFitness();
+            });
+            filtered = filtered.slice(0, SLICE_RATE);
+            const prevFitnessMin = fitnessMin;
+            fitnessMin = filtered[filtered.length - 1].getFitness();
+            console.log(`< Slice, new fitnessMin: ${fitnessMin}, previous fitnessMin: ${prevFitnessMin}`);
+        }
         const fitnessMean = fitnessSum / filtered.length;
-        console.log(`> ${filtered.length}/${processed.length} species passed selection with fitness of ${this.fitness}, fitness mean is - ${fitnessMean}, fitness min is ${fitnessMin}`);
+        console.log(`> ${filtered.length}/${processed.length} species passed selection with fitness of ${settings.fitness}, fitness mean is - ${fitnessMean}, fitness min is ${fitnessMin}`);
         if (filtered.length > 1) {
-            this.fitness = fitnessMin;
+            // settings.fitness = (settings.fitness + (((fitnessMean - settings.fitness) / 2)) / 2) || fitnessMin;
+            settings.fitness = fitnessMin;
         }
         return filtered;
     }
     mateSpecies(items) {
         const mated = [];
+        const itemsCount = Math.max(4 * items.length, 125);
         console.log(`> mating with ${settings.mutationRate} mutation rate`);
-        const cnt = 250;
         for (let i = 0; i < items.length; i++) {
             const item = items[i];
-            while (mated.length < 100) {
+            while (mated.length < itemsCount) {
                 const j = rand(0, items.length - 1);
                 if (i === j) {
                     continue;
@@ -503,7 +532,14 @@ class Evolution {
                 mated.push(item1.mate(item2, settings.mutationRate));
             }
         }
-        mated.push(...items);
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            mated.push(item.clone());
+        }
+        mated.sort((a, b) => {
+            return b.getFitness() - a.getFitness();
+        });
+        // shuffle(mated);
         console.log(`> ${items.length} species mated, new generation is ${mated.length} species`);
         return mated;
     }
@@ -564,7 +600,7 @@ class Canvas extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProt
         const canvas = document.createElement('canvas');
         canvas.style.width = `${width}px`;
         canvas.style.height = `${height}px`;
-        canvas.style.border = `1px solid #777`;
+        canvas.style.border = `2px solid #aaa`;
         canvas.setAttribute('width', width);
         canvas.setAttribute('height', height);
         parent.appendChild(canvas);
@@ -595,7 +631,7 @@ class Ball extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProto 
         this.defaults = {
             angle: 0,
             speed: 6,
-            radius: 3,
+            radius: 4,
             x: 0,
             y: 0,
             canvas: null,
@@ -650,11 +686,13 @@ class Ball extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProto 
             this.props.rightBat.hit();
             isBat = true;
         }
-        const isLeftBound = this.checkLeftBound(newPoint);
-        const isRightBound = this.checkRightBound(newPoint);
-        if (!isLeftBound && !isRightBound && !isVerticalBound && !isBat) {
-            this.props.x = newPoint.x;
-            this.props.y = newPoint.y;
+        if (!isVerticalBound && !isBat) {
+            const isLeftBound = this.checkLeftBound(newPoint);
+            const isRightBound = this.checkRightBound(newPoint);
+            if (!isLeftBound && !isRightBound) {
+                this.props.x = newPoint.x;
+                this.props.y = newPoint.y;
+            }
         }
         this.render();
     }
@@ -716,7 +754,7 @@ class Ball extends __WEBPACK_IMPORTED_MODULE_0__class_proto__["a" /* ClassProto 
         canvas.ctx.beginPath();
         canvas.ctx.arc(x, y, radius, 0, 2 * Math.PI, true);
         canvas.ctx.closePath();
-        canvas.ctx.fillStyle = 'cyan';
+        canvas.ctx.fillStyle = 'purple';
         canvas.ctx.fill();
     }
 }

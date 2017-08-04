@@ -23,7 +23,7 @@ export class Ball extends ClassProto implements IBallClass {
     this.defaults = {
       angle: 0,
       speed: 6,
-      radius: 3,
+      radius: 4,
       x: 0,
       y: 0,
       canvas: null,
@@ -86,11 +86,13 @@ export class Ball extends ClassProto implements IBallClass {
       isBat = true;
     }
 
-    const isLeftBound = this.checkLeftBound(newPoint);
-    const isRightBound = this.checkRightBound(newPoint);
-    if (!isLeftBound && !isRightBound && !isVerticalBound && !isBat) {
-      this.props.x = newPoint.x;
-      this.props.y = newPoint.y;
+    if (!isVerticalBound && !isBat) {
+      const isLeftBound = this.checkLeftBound(newPoint);
+      const isRightBound = this.checkRightBound(newPoint);
+      if (!isLeftBound && !isRightBound) {
+        this.props.x = newPoint.x;
+        this.props.y = newPoint.y;
+      }
     }
 
     this.render();
@@ -193,7 +195,7 @@ export class Ball extends ClassProto implements IBallClass {
     canvas.ctx.beginPath();
     canvas.ctx.arc(x, y, radius, 0, 2 * Math.PI, true); 
     canvas.ctx.closePath();
-    canvas.ctx.fillStyle = 'cyan';
+    canvas.ctx.fillStyle = 'purple';
     canvas.ctx.fill();
   }
 }

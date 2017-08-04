@@ -8,7 +8,7 @@ export enum SideType {
   Right
 }
 
-const BAT_WIDTH = 4;
+const BAT_WIDTH = 5;
 const BAT_COLOR = '#333';
 
 interface IBatProps {
@@ -42,7 +42,7 @@ export class Bat extends ClassProto implements IBatClass{
       canvas: null,
       ball: null,
       parameters: [],
-      front: 4,
+      front: BAT_WIDTH,
       fitness: 0,
       distance: 0,
       hits: 0
@@ -59,7 +59,7 @@ export class Bat extends ClassProto implements IBatClass{
   }
 
   public blame() {
-    this.props.hits - 2;
+    this.props.hits / 1.25;
   }
 
   public set(o) {
@@ -105,10 +105,10 @@ export class Bat extends ClassProto implements IBatClass{
     const dY = (this.props.top + (this.props.height / 2)) - ball.props.y;
     const maxNorm = Math.sqrt((this.props.canvas.height ** 2) + (this.props.canvas.width ** 2));
     const feature3 = Math.sqrt((dX ** 2) + (dY ** 2)) / maxNorm;
+    const feature4 = ((this.props.canvas.height / 2) - this.props.ball.props.y) / (this.props.canvas.height / 2);
+    const feature5 = this.props.canvas.height / (this.props.ball.props.y - (this.props.top + (this.props.height / 2)));
 
-    const feature4 = this.props.canvas.height / (this.props.ball.y - (this.props.top + (this.props.height / 2)));
-
-    return [[1, feature1, feature2, feature3]];
+    return [[1, feature1, feature2, feature3, feature4]];
   }
 
   private render() {
@@ -122,7 +122,7 @@ export class Bat extends ClassProto implements IBatClass{
     }
   }
 
-  public getFitness() { return (this.props.distance / 200) + this.props.hits; }
+  public getFitness() { return (this.props.distance / (this.props.canvas.height/2)) + (this.props.hits); }
   public getParameters() { return this.nn.getParameters(); }
 
   public mate (bat: Bat, mutationRate: number) {
@@ -136,7 +136,7 @@ export class Bat extends ClassProto implements IBatClass{
 
   public createAccessor(mutationRate) {
     return new Bat({
-      ...this.props,
+      canvas: this.props.canvas,
       parameters: this.nn.createSuccessor(mutationRate)
     });
   }

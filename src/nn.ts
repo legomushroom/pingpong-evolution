@@ -62,8 +62,7 @@ export class NeuralNetwork extends ClassProto implements INeuralNetworkClass {
     const resultParams = arrayCopy(params1);
 
     const rate = fitness1 / (fitness1 + fitness2);
-
-    console.log(`fitness1: ${fitness1}, fitness2: ${fitness2}, probability of 2: ${1 - rate}`);
+    // console.log(`fitness1: ${fitness1}, fitness2: ${fitness2}, probability of 2: ${1 - rate}`);
 
     for (let k = 0; k < params2.length; k++) {
       const layer = params2[k];
@@ -75,7 +74,7 @@ export class NeuralNetwork extends ClassProto implements INeuralNetworkClass {
           }
           if (Math.random() <= mutationRate) {
             // console.log(`> mutation occurred`);
-            resultParams[k][i][j] = (2 * Math.random()) * resultParams[k][i][j];
+            resultParams[k][i][j] = (6 * Math.random()) - 3;
           }
         }
       }
